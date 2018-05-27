@@ -1,2 +1,9 @@
 language: node_js
 node_js: node
+deploy:
+  provider: heroku
+  api_key:
+    secure: SQTkakS52c/CP44VarCIkLumPdUjb5OX2tnMxZlWqNM2bp/orzV8nIQ4q8XRaQeZtL44uSZRI9CxiZ7SEsfdzVDaR6Dsr1/X04MyCKkQCcQcxfW1i76pJB7WrzU5rYw0EVdvqE/+7QYXU6syflXedT2wak7tJihXMjDV7Bf0XLmGpgZlZ++66iygqypBmzbzkkwYT9Rn+kXrwLGRXoSgh0iI3tbq/vrPqiK80i90gLg5Og18LjTmiaYiLXJP1GJnXIgTm94jy3RMy71cYEjI7Tw6m2J8C5E+4J61oxxfScY4DPiXVvBkwo3bWfYIbQvUSp3tLuTlx4yIIHMBqAqwzGIKqUprbblZhMUID2WyHGxrn64GgyqgkX9h8lUKkz96Bxn26GbX+e2qjgX8Ek3VQOXQ8r1p4a2FKFrZnWjQUqRgiNQD4hN7N++CMYnsK/L9WZhjZj0q/hD5N3PXbfEvL/NmWeYSZxgjV4MSkgjcMNToWo7oQGhiCBWwZwH4C8rvnEawRQIRfY/HpodMdzvNaECEXUbKtDhYrYEYirWUGps/T2AMDpIJ+JEZjzT4BAoVIes13lZSr/1lbfkrBnz2pLYsXcjGwLVhSRmlWu4WRmYcg1JGfEEcnp8Q0LNzlhwPCHhMFPBAL2Jjn+PwGQT8EnhaFdlj+bC4Ak3c1+L9R2w=
+  app: nameless-retreat-35358
+  on:
+    repo: johnjoowho/blog-app-mongoose-challenge-solution
