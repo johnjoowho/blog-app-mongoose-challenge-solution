@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 
 //this makes 'should' syntax available throughout the module
 //same as chai.should(); 
-const should = chai('should'); 
+chai.should(); 
 
 chai.use(chaiHttp); 
 
