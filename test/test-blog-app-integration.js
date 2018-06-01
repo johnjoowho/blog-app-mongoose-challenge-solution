@@ -16,6 +16,16 @@ const {BlogPost} = require('../models');
 const {app, runServer, closeServer} = require('../server'); 
 const {TEST_DATABASE_URL} = require('../config'); 
 
+//function will disconnect from database at the end of test 
+//.then results in resolve, and .catch results in reject(err) 
+function tearDownDb() {
+  return new Promise((resolve, reject) => {
+    console.warn('Deleting database'); 
+    mongoose.connection.dropDatabase()
+      .then(result => resolve(result))
+      .catch(err => reject(err)); 
+  });
+}
 
 //  created randomish data to test
 //  uses faker library to generate placeholder values & import to mongo
@@ -41,16 +51,7 @@ function seedBlogPostData() {
   return BlogPost.insertMany(seedData);
 }
 
-//function will disconnect from database at the end of test 
-//.then results in resolve, and .catch results in reject(err) 
-function tearDownDb() {
-  return new Promise((resolve, reject) => {
-    console.warn('Deleting database'); 
-    mongoose.connection.dropDatabase()
-      .then(result => resolve(result))
-      .catch(err => reject(err)); 
-  });
-}
+
 
 describe('Blog posts API resource', function() { 
   //hook functions to run server
