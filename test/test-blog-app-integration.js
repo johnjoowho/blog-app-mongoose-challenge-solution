@@ -47,7 +47,7 @@ function tearDownDb() {
   return new Promise((resolve, reject) => {
     console.warn('Deleting database'); 
     mongoose.connection.dropDatabase()
-      .then(result => resolves(result))
+      .then(result => resolve(result))
       .catch(err => reject(err)); 
   });
 }
