@@ -110,7 +110,7 @@ describe('Blog posts API resource', function() {
           //post is created by forEach function 
           res.body.forEach(function(post) { 
             post.should.be.a('object'); 
-            post.should.include.keys('id', 'title', 'content', 'author', 'crated'); 
+            post.should.include.keys('id', 'title', 'content', 'author', 'created'); 
           }); 
 
           //check id on one item to assume rest 
