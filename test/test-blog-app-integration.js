@@ -1,254 +1,243 @@
-'use strict'; 
+'use strict';
 
-const chai = require('chai'); 
-const chaiHttp = require('chai-http'); 
-const faker = require('faker'); 
-const mongoose = require('mongoose'); 
+const chai = require('chai');
+const chaiHttp = require('chai-http');
+const faker = require('faker');
+const mongoose = require('mongoose');
 
-//this makes 'should' syntax available throughout the module
-//same as chai.should(); 
-chai.should(); 
+// this makes the should syntax available throughout
+// this module
+const should = chai.should();
 
-chai.use(chaiHttp); 
+const { BlogPost } = require('../models');
+const { closeServer, runServer, app } = require('../server');
+const { TEST_DATABASE_URL } = require('../config');
 
+chai.use(chaiHttp);
 
-const {BlogPost} = require('../models'); 
-const {app, runServer, closeServer} = require('../server'); 
-const {TEST_DATABASE_URL} = require('../config'); 
-
-//function will disconnect from database at the end of test 
-//.then results in resolve, and .catch results in reject(err) 
+// this function deletes the entire database.
+// we'll call it in an `afterEach` block below
+// to ensure  ata from one test does not stick
+// around for next one
 function tearDownDb() {
   return new Promise((resolve, reject) => {
-    console.warn('Deleting database'); 
+    console.warn('Deleting database');
     mongoose.connection.dropDatabase()
       .then(result => resolve(result))
-      .catch(err => reject(err)); 
+      .catch(err => reject(err));
   });
 }
 
-//  created randomish data to test
-//  uses faker library to generate placeholder values & import to mongo
-//  function creates data to be used for BlogPost 
-function seedBlogPostData() { 
-  console.info('seeding blog post data'); 
-  const seedData= []; 
 
-  //  creates 10 new items with faker data
-  //  pushes values created by faker into seedData
-  for (let i=1; i<=10; i++) { 
+// used to put randomish documents in db
+// so we have data to work with and assert about.
+// we use the Faker library to automatically
+// generate placeholder values for author, title, content
+// and then we insert that data into mongo
+function seedBlogPostData() {
+  console.info('seeding blog post data');
+  const seedData = [];
+  for (let i = 1; i <= 10; i++) {
     seedData.push({
       author: {
-        firstName: faker.name.firstName(), 
+        firstName: faker.name.firstName(),
         lastName: faker.name.lastName()
-      }, 
-      title: faker.lorem.sentence(), 
+      },
+      title: faker.lorem.sentence(),
       content: faker.lorem.text()
     });
   }
-  //  this returns promise, a BlogPost with 10 entries, created with seedData
-  //  there are 10 seedData instances, so insertMany will insert 10 into BlogPost 
+  // this will return a promise
   return BlogPost.insertMany(seedData);
 }
 
 
+describe('blog posts API resource', function () {
 
-describe('Blog posts API resource', function() { 
-  //hook functions to run server
-  before(function() { 
-    return runServer(TEST_DATABASE_URL); 
+  before(function () {
+    return runServer(TEST_DATABASE_URL);
   });
 
-  beforeEach(function() { 
-    return seedBlogPostData(); 
-  }); 
-  
-  afterEach(function() { 
-    return tearDownDb(); 
-  }); 
+  beforeEach(function () {
+    return seedBlogPostData();
+  });
 
-  after(function() { 
-    return closeServer(); 
-  }); 
+  afterEach(function () {
+    // tear down database so we ensure no state from this test
+    // effects any coming after.
+    return tearDownDb();
+  });
 
+  after(function () {
+    return closeServer();
+  });
+
+  // note the use of nested `describe` blocks.
+  // this allows us to make clearer, more discrete tests that focus
+  // on proving something small
   describe('GET endpoint', function () {
 
-    //test GET request 
-    it('should return all existing posts', function() {
-      let res; 
+    it('should return all existing posts', function () {
+      // strategy:
+      //    1. get back all posts returned by by GET request to `/posts`
+      //    2. prove res has right status, data type
+      //    3. prove the number of posts we got back is equal to number
+      //       in db.
+      let res;
       return chai.request(app)
-        .get('/restaurants')
-        .then(function(_res) {
-          res = _res; 
-          res.should.have.status(200); 
+        .get('/posts')
+        .then(_res => {
+          res = _res;
+          res.should.have.status(200);
+          // otherwise our db seeding didn't work
           res.body.should.have.lengthOf.at.least(1);
 
-          return BlogPost.count(); 
+          return BlogPost.count();
         })
-        
-        //number of returned posts should be same as posts in DB 
         .then(count => {
+          // the number of returned posts should be same
+          // as number of posts in DB
           res.body.should.have.lengthOf(count);
         });
     });
 
-    //test for FIELDS 
-    it('should check for correct fields', function() {
-      let resPost; 
+    it('should return posts with right fields', function () {
+      // Strategy: Get back all posts, and ensure they have expected keys
+
+      let resPost;
       return chai.request(app)
         .get('/posts')
-        .then(function(res) {
-          
-          //res created by .get request to ('/posts)
-          //checks res body for json, array, and at least one object 
-          res.should.have.status(200); 
-          res.should.be.json; 
+        .then(function (res) {
+
+          res.should.have.status(200);
+          res.should.be.json;
           res.body.should.be.a('array');
-          res.body.should.have.lengthOf.at.least(1); 
+          res.body.should.have.lengthOf.at.least(1);
 
-          //here we check the fields, or keys
-          //post is created by forEach function 
-          res.body.forEach(function(post) { 
-            post.should.be.a('object'); 
-            post.should.include.keys('id', 'title', 'content', 'author', 'created'); 
-          }); 
-
-          //check id on one item to assume rest 
-          //creates resPost with the first item in the body 
-          resPost = res.body[0]; 
-
-          //takes resPost's id and searches BlogPost by id
-          return BlogPost.findById(resPost.id); 
+          res.body.forEach(function (post) {
+            post.should.be.a('object');
+            post.should.include.keys('id', 'title', 'content', 'author', 'created');
+          });
+          // just check one of the posts that its values match with those in db
+          // and we'll assume it's true for rest
+          resPost = res.body[0];
+          return BlogPost.findById(resPost.id);
         })
-
-        //now test if returned object matches resPost's properties  
-        //post is the returned object being compared to resPost
         .then(post => {
-          resPost.title.should.equal(post.title); 
-          
-          //authorName?  or 'author'? author is an obj with first and last name 
-          resPost.author.should.equal(post.authorName); 
+          resPost.title.should.equal(post.title);
+          resPost.content.should.equal(post.content);
+          resPost.author.should.equal(post.authorName);
         });
-      }); 
     });
+  });
 
+  describe('POST endpoint', function () {
+    // strategy: make a POST request with data,
+    // then prove that the post we get back has
+    // right keys, and that `id` is there (which means
+    // the data was inserted into db)
+    it('should add a new blog post', function () {
 
-    //testing all POST requests to server 
-    describe('POST endpoint', function() { 
-      
-      //create a faker post object and test returned object and ID 
-      it('should add a new blog post', function () { 
+      const newPost = {
+        title: faker.lorem.sentence(),
+        author: {
+          firstName: faker.name.firstName(),
+          lastName: faker.name.lastName(),
+        },
+        content: faker.lorem.text()
+      };
 
-        //here is the post test object 
-        //newPost refers to new post request
-        const newPost = {
-          title: faker.lorem.sentence(), 
-          author: { 
-            firstName: faker.name.firstName(), 
-            lastName: faker.name.lastName() , 
-          }, 
-          content: faker.lorem.text()
-        }; 
-
-        //collecting returned data from POST requests to '/posts'
-        return chai.request(app) 
-          
-          //POSTs request to endpoint '/posts'
-          .post('/posts') 
-
-          //sends newPost to posts 
-          .send(newPost)
-
-          //newPost is returned from database as res, now to check res against newPost(the request)
-          .then(function(res) {
-
-            //checking res (new object found in db) body for header basic info 
-            res.should.have.status(201); 
-            res.should.be.json; 
-            res.body.should.be.a('object'); 
-            res.body.should.include.keys( 
-              'id', 'title', 'content', 'author', 'created'); 
-
-            //testing values for the new input 
-            res.body.title.should.equal(newPost.title); 
-
-            //mongo should have created id 
-            res.body.id.should.not.be.null; 
-            res.body.author.should.equal(`${newPost.author.firstName} ${newPost.author.lastName}`);
-            res.body.content.should.equal(newPost.content); 
-            return BlogPost.findById(res.body.id);
-          })
-
-          //now test the item this time searched by ID, against newPost(which was our request)
-          //being returned by ID means that the item was actually created and posted to DB 
-          .then(function (post) {
-            post.title.should.equal(newPost.title); 
-            post.content.should.equal(newPost.content); 
-            post.author.firstName.should.equal(newPost.author.FirstName); 
-            post.author.lastName.should.equal(newPost.author.lastName); 
-          }); 
-      }); 
-    }); 
-
-    //now we are testing PUT requests, aka updates or replacements
-    describe('PUT endpoint', function() { 
-      it('should update fields you enter with new info', function() {
-        
-        //creating test update values/fields
-        const updateData = { 
-          title: 'This is the best blog ever', 
-          content: faker.lorem.text, 
-          author: { 
-            firstName: 'Abraham', 
-            lastName: 'Lincoln'
-          }
-        }; 
-
-        //now finding a randon blog post to update with data from updateData
-        //returns BlogPost DB, picks one (first) post, and assigns its id to updateData's id 
-        return BlogPost
-          .findOne()
-          .then(post => {
-            updateData.id = post.id; 
-  
-            //sends updateData to its new id endpoint, replacing old original item
-            return chai.request(app)
-              .put(`/posts/${post.id}`)
-              .send(updateData); 
-          })
-
-          //now make sure post was made and return the object by new assigned id
-          .then(res => {
-            res.should.have.status(204); 
-            return BlogPost.findById(updateData.id); 
-          })
-          //takes the blog post returned by id search and tests against input values, or updateData
-          .then(post => {
-            post.title.should.equal(updateData.title); 
-            post.content.should.equal(updateData.content); 
-            post.author.firstName.should.equal(updateaData.author.firstName); 
-            post.author.lastName.should.equal(updateaData.author.lastName); 
-          });
-      });
-    }); 
-
-    describe('DELETE endpoint', function() { 
-      it('should delete a post by id', function() { 
-        let post; 
-
-        return BlogPost
-          .findOne()
-          .then(_post => {
-            post = _post; 
-            return chai.request(app).delete(`/posts/${post.id}`);
-          })
-          .then(res => {
-            res.should.have.status(204); 
-            return BlogPost.findById(post.id); 
-          })
-          .then(_post => {
-            should.not.exist(_post); 
-          });
-      });
+      return chai.request(app)
+        .post('/posts')
+        .send(newPost)
+        .then(function (res) {
+          res.should.have.status(201);
+          res.should.be.json;
+          res.body.should.be.a('object');
+          res.body.should.include.keys(
+            'id', 'title', 'content', 'author', 'created');
+          res.body.title.should.equal(newPost.title);
+          // cause Mongo should have created id on insertion
+          res.body.id.should.not.be.null;
+          res.body.author.should.equal(
+            `${newPost.author.firstName} ${newPost.author.lastName}`);
+          res.body.content.should.equal(newPost.content);
+          return BlogPost.findById(res.body.id);
+        })
+        .then(function (post) {
+          post.title.should.equal(newPost.title);
+          post.content.should.equal(newPost.content);
+          post.author.firstName.should.equal(newPost.author.firstName);
+          post.author.lastName.should.equal(newPost.author.lastName);
+        });
     });
-}); 
+  });
+
+  describe('PUT endpoint', function () {
+
+    // strategy:
+    //  1. Get an existing post from db
+    //  2. Make a PUT request to update that post
+    //  4. Prove post in db is correctly updated
+    it('should update fields you send over', function () {
+      const updateData = {
+        title: 'cats cats cats',
+        content: 'dogs dogs dogs',
+        author: {
+          firstName: 'foo',
+          lastName: 'bar'
+        }
+      };
+
+      return BlogPost
+        .findOne()
+        .then(post => {
+          updateData.id = post.id;
+
+          return chai.request(app)
+            .put(`/posts/${post.id}`)
+            .send(updateData);
+        })
+        .then(res => {
+          res.should.have.status(204);
+          return BlogPost.findById(updateData.id);
+        })
+        .then(post => {
+          post.title.should.equal(updateData.title);
+          post.content.should.equal(updateData.content);
+          post.author.firstName.should.equal(updateData.author.firstName);
+          post.author.lastName.should.equal(updateData.author.lastName);
+        });
+    });
+  });
+
+  describe('DELETE endpoint', function () {
+    // strategy:
+    //  1. get a post
+    //  2. make a DELETE request for that post's id
+    //  3. assert that response has right status code
+    //  4. prove that post with the id doesn't exist in db anymore
+    it('should delete a post by id', function () {
+
+      let post;
+
+      return BlogPost
+        .findOne()
+        .then(_post => {
+          post = _post;
+          return chai.request(app).delete(`/posts/${post.id}`);
+        })
+        .then(res => {
+          res.should.have.status(204);
+          return BlogPost.findById(post.id);
+        })
+        .then(_post => {
+          // when a variable's value is null, chaining `should`
+          // doesn't work. so `_post.should.be.null` would raise
+          // an error. `should.be.null(_post)` is how we can
+          // make assertions about a null value.
+          should.not.exist(_post);
+        });
+    });
+  });
+});
